@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import argparse
 import logging
 
@@ -42,25 +43,25 @@ def create_parser():
   parser.add_argument('--endpoint_config_tags', type=_utils.yaml_or_json_str, required=False, help='An array of key-value pairs, to categorize AWS resources.', default={})
   parser.add_argument('--endpoint_name', type=str, required=False, help='The name of the endpoint.', default='')
   parser.add_argument('--endpoint_tags', type=_utils.yaml_or_json_str, required=False, help='An array of key-value pairs, to categorize AWS resources.', default={})
+  parser.add_argument('--endpoint_name_output_path', type=str, default='/tmp/endpoint-name', help='Local output path for the file containing the name of the created endpoint.')
 
   return parser
 
 def main(argv=None):
   parser = create_parser()
-  args = parser.parse_args()
+  args = parser.parse_args(argv)
 
   logging.getLogger().setLevel(logging.INFO)
-  client = _utils.get_sagemaker_client(args.region, args.endpoint_url)
+  client = _utils.get_sagemaker_client(args.region, args.endpoint_url, assume_role_arn=args.assume_role)
   logging.info('Submitting Endpoint request to SageMaker...')
   endpoint_name = _utils.deploy_model(client, vars(args))
   logging.info('Endpoint creation request submitted. Waiting for completion...')
   _utils.wait_for_endpoint_creation(client, endpoint_name)
 
-  with open('/tmp/endpoint_name.txt', 'w') as f:
-    f.write(endpoint_name)
+  _utils.write_output(args.endpoint_name_output_path, endpoint_name)
 
   logging.info('Endpoint creation completed.')
 
 
 if __name__== "__main__":
-  main()
+  main(sys.argv[1:])

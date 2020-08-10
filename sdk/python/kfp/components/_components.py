@@ -33,20 +33,19 @@ _default_component_name = 'Component'
 
 
 def load_component(filename=None, url=None, text=None):
-    '''
-    Loads component from text, file or URL and creates a task factory function
+    """Loads component from text, file or URL and creates a task factory function
     
     Only one argument should be specified.
 
     Args:
         filename: Path of local file containing the component definition.
-        url: The URL of the component file data
+        url: The URL of the component file data.
         text: A string containing the component file data.
 
     Returns:
         A factory function with a strongly-typed signature.
         Once called with the required arguments, the factory constructs a pipeline task instance (ContainerOp).
-    '''
+    """
     #This function should be called load_task_factory since it returns a factory function.
     #The real load_component function should produce an object with component properties (e.g. name, description, inputs/outputs).
     #TODO: Change this function to return component spec object but it should be callable to construct tasks.
@@ -63,18 +62,18 @@ def load_component(filename=None, url=None, text=None):
         raise ValueError('Need to specify a source')
 
 
-def load_component_from_url(url):
-    '''
-    Loads component from URL and creates a task factory function
+def load_component_from_url(url: str, auth=None):
+    """Loads component from URL and creates a task factory function
     
     Args:
         url: The URL of the component file data
+        auth: Auth object for the requests library. See https://requests.readthedocs.io/en/master/user/authentication/
 
     Returns:
         A factory function with a strongly-typed signature.
         Once called with the required arguments, the factory constructs a pipeline task instance (ContainerOp).
-    '''
-    component_spec = _load_component_spec_from_url(url)
+    """
+    component_spec = _load_component_spec_from_url(url, auth)
     url = _fix_component_uri(url)
     component_ref = ComponentReference(url=url)
     return _create_task_factory_from_component_spec(
@@ -85,8 +84,7 @@ def load_component_from_url(url):
 
 
 def load_component_from_file(filename):
-    '''
-    Loads component from file and creates a task factory function
+    """Loads component from file and creates a task factory function
     
     Args:
         filename: Path of local file containing the component definition.
@@ -94,7 +92,7 @@ def load_component_from_file(filename):
     Returns:
         A factory function with a strongly-typed signature.
         Once called with the required arguments, the factory constructs a pipeline task instance (ContainerOp).
-    '''
+    """
     component_spec = _load_component_spec_from_file(path=filename)
     return _create_task_factory_from_component_spec(
         component_spec=component_spec,
@@ -103,8 +101,7 @@ def load_component_from_file(filename):
 
 
 def load_component_from_text(text):
-    '''
-    Loads component from text and creates a task factory function
+    """Loads component from text and creates a task factory function
     
     Args:
         text: A string containing the component file data.
@@ -112,7 +109,7 @@ def load_component_from_text(text):
     Returns:
         A factory function with a strongly-typed signature.
         Once called with the required arguments, the factory constructs a pipeline task instance (ContainerOp).
-    '''
+    """
     if text is None:
         raise TypeError
     component_spec = _load_component_spec_from_component_text(text)
@@ -132,14 +129,14 @@ def _load_component_spec_from_file(path) -> ComponentSpec:
         return _load_component_spec_from_yaml_or_zip_bytes(component_stream.read())
 
 
-def _load_component_spec_from_url(url: str):
+def _load_component_spec_from_url(url: str, auth=None):
     if url is None:
         raise TypeError
 
     url = _fix_component_uri(url)
 
     import requests
-    resp = requests.get(url)
+    resp = requests.get(url, auth=auth)
     resp.raise_for_status()
     return _load_component_spec_from_yaml_or_zip_bytes(resp.content)
 
@@ -148,10 +145,10 @@ _COMPONENT_FILE_NAME_IN_ARCHIVE = 'component.yaml'
 
 
 def _load_component_spec_from_yaml_or_zip_bytes(data: bytes):
-    '''Loads component spec from binary data.
+    """Loads component spec from binary data.
 
     The data can be a YAML file or a zip file with a component.yaml file inside.
-    '''
+    """
     import zipfile
     import io
     stream = io.BytesIO(data)
@@ -169,6 +166,7 @@ def _load_component_spec_from_component_text(text) -> ComponentSpec:
     # Calculating hash digest for the component
     import hashlib
     data = text if isinstance(text, bytes) else text.encode('utf-8')
+    data = data.replace(b'\r\n', b'\n')  # Normalizing line endings
     digest = hashlib.sha256(data).hexdigest()
     component_spec._digest = digest
 

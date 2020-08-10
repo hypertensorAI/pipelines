@@ -176,13 +176,16 @@ def _outputs_to_json(op: BaseOp,
 def _op_to_template(op: BaseOp):
     """Generate template given an operator inherited from BaseOp."""
 
+    # Display name
+    if op.display_name:
+        op.add_pod_annotation('pipelines.kubeflow.org/task_display_name', op.display_name)
+
     # NOTE in-place update to BaseOp
     # replace all PipelineParams with template var strings
     processed_op = _process_base_ops(op)
 
     if isinstance(op, dsl.ContainerOp):
-        # default output artifacts
-        output_artifact_paths = OrderedDict(op.output_artifact_paths)
+        output_artifact_paths = OrderedDict()
         # This should have been as easy as output_artifact_paths.update(op.file_outputs), but the _outputs_to_json function changes the output names and we must do the same here, so that the names are the same
         output_artifact_paths.update(sorted(((param.full_name, processed_op.file_outputs[param.name]) for param in processed_op.outputs.values()), key=lambda x: x[0]))
 
@@ -269,10 +272,6 @@ def _op_to_template(op: BaseOp):
     if processed_op.volumes:
         template['volumes'] = [convert_k8s_obj_to_json(volume) for volume in processed_op.volumes]
         template['volumes'].sort(key=lambda x: x['name'])
-
-    # Display name
-    if processed_op.display_name:
-        template.setdefault('metadata', {}).setdefault('annotations', {})['pipelines.kubeflow.org/task_display_name'] = processed_op.display_name
 
     if isinstance(op, dsl.ContainerOp) and op._metadata:
         template.setdefault('metadata', {}).setdefault('annotations', {})['pipelines.kubeflow.org/component_spec'] = json.dumps(op._metadata.to_dict(), sort_keys=True)

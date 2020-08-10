@@ -10,8 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import argparse
 import logging
+import signal
 
 from common import _utils
 
@@ -48,28 +50,34 @@ def create_parser():
   parser.add_argument('--max_concurrent_tasks', type=int, required=False, help='The maximum number of data objects that can be labeled by human workers at the same time.', default=0)
   parser.add_argument('--workforce_task_price', type=float, required=False, help='The price that you pay for each task performed by a public worker in USD. Specify to the tenth fractions of a cent. Format as "0.000".', default=0.000)
   parser.add_argument('--tags', type=_utils.yaml_or_json_str, required=False, help='An array of key-value pairs, to categorize AWS resources.', default={})
+  parser.add_argument('--output_manifest_location_output_path', type=str, default='/tmp/manifest-location', help='Local output path for the file containing the Amazon S3 bucket location of the manifest file for labeled data.')
+  parser.add_argument('--active_learning_model_arn_output_path', type=str, default='/tmp/active-model-arn', help='Local output path for the file containing the ARN for the most recent Amazon SageMaker model trained as part of automated data labeling.')
 
   return parser
 
 def main(argv=None):
   parser = create_parser()
-  args = parser.parse_args()
+  args = parser.parse_args(argv)
 
   logging.getLogger().setLevel(logging.INFO)
-  client = _utils.get_sagemaker_client(args.region, args.endpoint_url)
+  client = _utils.get_sagemaker_client(args.region, args.endpoint_url, assume_role_arn=args.assume_role)
   logging.info('Submitting Ground Truth Job request to SageMaker...')
   _utils.create_labeling_job(client, vars(args))
+
+  def signal_term_handler(signalNumber, frame):
+    _utils.stop_labeling_job(client, args.job_name)
+    logging.info(f"Ground Truth labeling job: {args.job_name} request submitted to Stop")
+  signal.signal(signal.SIGTERM, signal_term_handler)
+
   logging.info('Ground Truth labeling job request submitted. Waiting for completion...')
   _utils.wait_for_labeling_job(client, args.job_name)
   output_manifest, active_learning_model_arn = _utils.get_labeling_job_outputs(client, args.job_name, args.enable_auto_labeling)
 
   logging.info('Ground Truth Labeling Job completed.')
 
-  with open('/tmp/output_manifest_location.txt', 'w') as f:
-    f.write(output_manifest)
-  with open('/tmp/active_learning_model_arn.txt', 'w') as f:
-    f.write(active_learning_model_arn)
+  _utils.write_output(args.output_manifest_location_output_path, output_manifest)
+  _utils.write_output(args.active_learning_model_arn_output_path, active_learning_model_arn)
 
 
 if __name__== "__main__":
-  main()
+  main(sys.argv[1:])

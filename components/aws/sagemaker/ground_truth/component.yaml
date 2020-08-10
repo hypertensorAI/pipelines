@@ -49,11 +49,11 @@ inputs:
     type: String
   - name: max_human_labeled_objects
     description: 'The maximum number of objects that can be labeled by human workers.'
-    default: ''
+    default: '0'
     type: Integer
   - name: max_percent_objects
     description: 'The maximum number of input data objects that should be labeled.'
-    default: ''
+    default: '0'
     type: Integer
   - name: enable_auto_labeling
     description: 'Enables auto-labeling, only for bounding box, text classification, and image classification.'
@@ -110,6 +110,10 @@ inputs:
     description: 'The endpoint URL for the private link VPC endpoint.'
     default: ''
     type: String
+  - name: assume_role
+    description: 'The ARN of an IAM role to assume when connecting to SageMaker.'
+    default: ''
+    type: String
   - name: tags
     description: 'Key-value pairs to categorize AWS resources.'
     default: '{}'
@@ -119,12 +123,13 @@ outputs:
   - {name: active_learning_model_arn, description: 'The ARN for the most recent Amazon SageMaker model trained as part of automated data labeling.'}
 implementation:
   container:
-    image: amazon/aws-sagemaker-kfp-components:0.3.1
+    image: amazon/aws-sagemaker-kfp-components:0.7.0
     command: ['python3']
     args: [
       ground_truth.py,
       --region, {inputValue: region},
       --endpoint_url, {inputValue: endpoint_url},
+      --assume_role, {inputValue: assume_role},
       --role, {inputValue: role},
       --job_name, {inputValue: job_name},
       --label_attribute_name, {inputValue: label_attribute_name},
@@ -153,8 +158,7 @@ implementation:
       --task_availibility, {inputValue: task_availibility},
       --max_concurrent_tasks, {inputValue: max_concurrent_tasks},
       --workforce_task_price, {inputValue: workforce_task_price},
-      --tags, {inputValue: tags}
+      --tags, {inputValue: tags},
+      --output_manifest_location_output_path, {outputPath: output_manifest_location},
+      --active_learning_model_arn_output_path, {outputPath: active_learning_model_arn}
     ]
-    fileOutputs:
-      output_manifest_location: /tmp/output_manifest_location.txt
-      active_learning_model_arn: /tmp/active_learning_model_arn.txt
